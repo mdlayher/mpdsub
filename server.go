@@ -1,7 +1,7 @@
 package mpdsub
 
 import (
-	sctx "context"
+	"context"
 	"encoding/hex"
 	"log"
 	"net/http"
@@ -87,8 +87,8 @@ func newServer(db database, fs filesystem, cfg *Config) *Server {
 	s.mux = mux
 
 	if cfg.Keepalive > 0 {
-		// TODO(mdlayher): enable canceling this goroutine via context or similar
-		go s.keepalive(sctx.TODO())
+		// TODO(mdlayher): enable canceling this goroutine via requestContext or similar
+		go s.keepalive(context.TODO())
 	}
 
 	return s
@@ -96,7 +96,7 @@ func newServer(db database, fs filesystem, cfg *Config) *Server {
 
 // keepalive sends keepalive messages to the database at regular intervals,
 // to keep connections open.
-func (s *Server) keepalive(ctx sctx.Context) {
+func (s *Server) keepalive(ctx context.Context) {
 	tick := time.NewTicker(s.cfg.Keepalive)
 	for {
 		select {
@@ -123,14 +123,14 @@ func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Connection", "close")
 
-	ctx, ok := parseContext(r)
+	rctx, ok := parseRequestContext(r)
 	if !ok {
 		// Subsonic API returns HTTP 200 on missing parameters
 		writeXML(w, errMissingParameter)
 		return
 	}
 
-	if ctx.User != s.cfg.SubsonicUser || ctx.Password != s.cfg.SubsonicPassword {
+	if rctx.User != s.cfg.SubsonicUser || rctx.Password != s.cfg.SubsonicPassword {
 		// Subsonic API returns HTTP 200 on invalid authentication
 		writeXML(w, errUnauthorized)
 		return
@@ -145,17 +145,17 @@ func (s *Server) logf(format string, v ...interface{}) {
 	s.cfg.Logger.Printf(format, v...)
 }
 
-// A context is the context for a request, parsed from the HTTP request.
-type context struct {
+// A requestContext is the requestContext for a request, parsed from the HTTP request.
+type requestContext struct {
 	User     string
 	Password string
 	Client   string
 	Version  string
 }
 
-// parseContext parses parameters from a HTTP request into a context.  If any
-// mandatory parameters are missing, it returns false.
-func parseContext(r *http.Request) (*context, bool) {
+// parseRequestContext parses parameters from a HTTP request into a requestContext.
+// If any mandatory parameters are missing, it returns false.
+func parseRequestContext(r *http.Request) (*requestContext, bool) {
 	q := r.URL.Query()
 
 	user := q.Get("u")
@@ -179,7 +179,7 @@ func parseContext(r *http.Request) (*context, bool) {
 		return nil, false
 	}
 
-	return &context{
+	return &requestContext{
 		User:     user,
 		Password: pass,
 		Client:   client,
