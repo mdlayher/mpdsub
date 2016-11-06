@@ -16,6 +16,7 @@ var _ database = &mpd.Client{}
 type database interface {
 	List(args ...string) ([]string, error)
 	ReadComments(uri string) (mpd.Attrs, error)
+	Ping() error
 }
 
 // A filesystem is a type which can open a file.  filesystem is implemented

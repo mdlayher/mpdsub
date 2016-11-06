@@ -140,6 +140,10 @@ func (db *memoryDatabase) List(args ...string) ([]string, error) {
 	return db.files, nil
 }
 
+func (db *memoryDatabase) Ping() error {
+	return nil
+}
+
 func (db *memoryDatabase) ReadComments(uri string) (mpd.Attrs, error) {
 	db.mu.RLock()
 	defer db.mu.RUnlock()

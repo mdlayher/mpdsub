@@ -5,6 +5,7 @@ import (
 	"flag"
 	"log"
 	"net/http"
+	"time"
 
 	"github.com/fhs/gompd/mpd"
 	"github.com/mdlayher/mpdsub"
@@ -46,6 +47,7 @@ func main() {
 		SubsonicPassword: pass,
 		MusicDirectory:   mpdMusicDir,
 		Verbose:          verbose,
+		Keepalive:        1 * time.Second,
 	})
 
 	log.Printf("starting HTTP server: %s", addr)

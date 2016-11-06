@@ -1,11 +1,13 @@
 package mpdsub
 
 import (
+	sctx "context"
 	"encoding/hex"
 	"log"
 	"net/http"
 	"os"
 	"strings"
+	"time"
 
 	"github.com/fhs/gompd/mpd"
 )
@@ -40,6 +42,11 @@ type Config struct {
 
 	// Verbose specifies if the server should enable verbose logging.
 	Verbose bool
+
+	// Keepalive specifies an optional duration for how often keepalive messages
+	// should be sent to MPD from the Server.  If Keepalive is set to 0,
+	// no keepalive messages will be sent to MPD.
+	Keepalive time.Duration
 
 	// Logger specifies an optional logger for the Server.  If Logger is
 	// nil, Server logs will be sent to stdout.
@@ -79,7 +86,28 @@ func newServer(db database, fs filesystem, cfg *Config) *Server {
 
 	s.mux = mux
 
+	if cfg.Keepalive > 0 {
+		// TODO(mdlayher): enable canceling this goroutine via context or similar
+		go s.keepalive(sctx.TODO())
+	}
+
 	return s
+}
+
+// keepalive sends keepalive messages to the database at regular intervals,
+// to keep connections open.
+func (s *Server) keepalive(ctx sctx.Context) {
+	tick := time.NewTicker(s.cfg.Keepalive)
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case <-tick.C:
+			if err := s.db.Ping(); err != nil {
+				s.logf("failed to send keepalive message: %v", err)
+			}
+		}
+	}
 }
 
 // ServeHTTP implements http.Handler.
