@@ -2,7 +2,9 @@ package mpdsub
 
 import (
 	"context"
+	"crypto/md5"
 	"encoding/hex"
+	"io"
 	"log"
 	"net/http"
 	"os"
@@ -130,7 +132,7 @@ func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if rctx.User != s.cfg.SubsonicUser || rctx.Password != s.cfg.SubsonicPassword {
+	if !s.authenticate(rctx) {
 		// Subsonic API returns HTTP 200 on invalid authentication
 		writeXML(w, errUnauthorized)
 		return
@@ -145,12 +147,51 @@ func (s *Server) logf(format string, v ...interface{}) {
 	s.cfg.Logger.Printf(format, v...)
 }
 
+// An authMethod is an authentication method supported by the Server.
+type authMethod int
+
+const (
+	// authMethodPassword is the legacy Subsonic authentication method,
+	// using a username and password parameter with each request.
+	authMethodPassword authMethod = iota
+
+	// authMethodTokenSalt is the recommended Subsonic authentication method,
+	// using a token and salt parameter with each request.
+	authMethodTokenSalt
+)
+
+// authenticate attempts to authenticate a user using the input requestContext.
+// It returns true if authentication is successful, or false if not.
+func (s *Server) authenticate(rctx *requestContext) bool {
+	if rctx.User != s.cfg.SubsonicUser {
+		return false
+	}
+
+	switch rctx.authMethod {
+	case authMethodPassword:
+		return rctx.Password == s.cfg.SubsonicPassword
+	case authMethodTokenSalt:
+		// From Subsonic documentation:
+		// http://www.subsonic.org/pages/api.jsp
+		//   token = md5(password + salt)
+		h := md5.New()
+		_, _ = io.WriteString(h, s.cfg.SubsonicPassword+rctx.Salt)
+		return rctx.Token == hex.EncodeToString(h.Sum(nil))
+	default:
+		return false
+	}
+}
+
 // A requestContext is the requestContext for a request, parsed from the HTTP request.
 type requestContext struct {
 	User     string
 	Password string
+	Token    string
+	Salt     string
 	Client   string
 	Version  string
+
+	authMethod authMethod
 }
 
 // parseRequestContext parses parameters from a HTTP request into a requestContext.
@@ -160,12 +201,6 @@ func parseRequestContext(r *http.Request) (*requestContext, bool) {
 
 	user := q.Get("u")
 	if user == "" {
-		return nil, false
-	}
-
-	// Password may be encoded, so transparently decode it, if needed
-	pass := decodePassword(q.Get("p"))
-	if pass == "" {
 		return nil, false
 	}
 
@@ -179,11 +214,40 @@ func parseRequestContext(r *http.Request) (*requestContext, bool) {
 		return nil, false
 	}
 
+	// Password may be encoded, so transparently decode it, if needed
+	pass := decodePassword(q.Get("p"))
+	if pass != "" {
+		// Password not empty, authenticate using password method
+		return &requestContext{
+			User:     user,
+			Password: pass,
+			Client:   client,
+			Version:  version,
+
+			authMethod: authMethodPassword,
+		}, true
+	}
+
+	// If password was empty, check for newer token and salt method
+	token := q.Get("t")
+	if token == "" {
+		return nil, false
+	}
+
+	salt := q.Get("s")
+	if salt == "" {
+		return nil, false
+	}
+
+	// Token and salt not empty, authenticate using token and salt method
 	return &requestContext{
-		User:     user,
-		Password: pass,
-		Client:   client,
-		Version:  version,
+		User:    user,
+		Token:   token,
+		Salt:    salt,
+		Client:  client,
+		Version: version,
+
+		authMethod: authMethodTokenSalt,
 	}, true
 }
 

@@ -34,16 +34,6 @@ func TestServerServeHTTP(t *testing.T) {
 			status: statusFailed,
 		},
 		{
-			name: "missing password",
-
-			values: url.Values{
-				"u": []string{"test"},
-			},
-
-			code:   codeMissingParameter,
-			status: statusFailed,
-		},
-		{
 			name: "missing client",
 
 			values: url.Values{
@@ -59,8 +49,32 @@ func TestServerServeHTTP(t *testing.T) {
 
 			values: url.Values{
 				"u": []string{"test"},
-				"p": []string{"test"},
 				"c": []string{"test"},
+			},
+
+			code:   codeMissingParameter,
+			status: statusFailed,
+		},
+		{
+			name: "missing password and token",
+
+			values: url.Values{
+				"u": []string{"test"},
+				"c": []string{"test"},
+				"v": []string{"1.14.0"},
+			},
+
+			code:   codeMissingParameter,
+			status: statusFailed,
+		},
+		{
+			name: "missing salt",
+
+			values: url.Values{
+				"u": []string{"test"},
+				"t": []string{"test"},
+				"c": []string{"test"},
+				"v": []string{"1.14.0"},
 			},
 
 			code:   codeMissingParameter,
@@ -118,7 +132,7 @@ func TestServerServeHTTP(t *testing.T) {
 			status: statusFailed,
 		},
 		{
-			name: "OK",
+			name: "OK password",
 			cfg: &Config{
 				SubsonicUser:     "test",
 				SubsonicPassword: "test",
@@ -149,6 +163,26 @@ func TestServerServeHTTP(t *testing.T) {
 			values: url.Values{
 				"u": []string{"test"},
 				"p": []string{"enc:74657374"},
+				"c": []string{"test"},
+				"v": []string{"1.14.0"},
+			},
+
+			status: statusOK,
+		},
+		{
+			name: "OK token and salt",
+			cfg: &Config{
+				SubsonicUser:     "test",
+				SubsonicPassword: "sesame",
+			},
+
+			method: http.MethodGet,
+			target: "/rest/ping.view",
+
+			values: url.Values{
+				"u": []string{"test"},
+				"t": []string{"26719a1196d2a940705a59634eb18eab"},
+				"s": []string{"c19b2d"},
 				"c": []string{"test"},
 				"v": []string{"1.14.0"},
 			},
