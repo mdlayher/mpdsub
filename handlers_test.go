@@ -237,12 +237,14 @@ func TestServer_getMusicDirectory(t *testing.T) {
 
 				Children: []child{
 					{
-						ID:    "1",
-						Title: "foo",
+						ID:     "1",
+						Suffix: "mp3",
+						Title:  "foo",
 					},
 					{
-						ID:    "2",
-						Title: "bar",
+						ID:     "2",
+						Suffix: "mp3",
+						Title:  "bar",
 					},
 					{
 						ID:    "3",

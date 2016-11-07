@@ -117,12 +117,14 @@ func (s *Server) getMusicDirectory(w http.ResponseWriter, r *http.Request) {
 
 	var children []child
 	for _, f := range files {
+		ext := strings.TrimPrefix(filepath.Ext(f.Name), ".")
 		children = append(children, child{
 			ID:     strconv.Itoa(f.ID),
-			Title:  f.Title,
 			Album:  f.Album,
 			Artist: f.Artist,
 			IsDir:  f.Dir,
+			Suffix: ext,
+			Title:  f.Title,
 		})
 	}
 

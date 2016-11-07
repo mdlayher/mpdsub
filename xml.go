@@ -164,10 +164,11 @@ type child struct {
 	XMLName xml.Name `xml:"child,omitempty"`
 
 	ID       string `xml:"id,attr"`
-	Title    string `xml:"title,attr"`
 	Album    string `xml:"album,attr"`
 	Artist   string `xml:"artist,attr"`
-	IsDir    bool   `xml:"isDir,attr"`
 	CoverArt int    `xml:"coverArt,attr"`
 	Created  string `xml:"created,attr"`
+	IsDir    bool   `xml:"isDir,attr"`
+	Suffix   string `xml:"suffix,attr"`
+	Title    string `xml:"title,attr"`
 }
