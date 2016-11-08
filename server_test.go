@@ -4,7 +4,24 @@ import (
 	"net/http"
 	"net/url"
 	"testing"
+	"time"
 )
+
+func TestServerClose(t *testing.T) {
+	pingC := make(chan struct{}, 0)
+	db := &memoryDatabase{
+		pingC: pingC,
+	}
+
+	s := newServer(db, nil, &Config{
+		Keepalive: 10 * time.Millisecond,
+	})
+	for i := 0; i < 3; i++ {
+		<-pingC
+	}
+	s.Close()
+	close(pingC)
+}
 
 func TestServerServeHTTP(t *testing.T) {
 	tests := []struct {

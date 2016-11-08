@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"os"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/fhs/gompd/mpd"
@@ -24,6 +25,9 @@ type Server struct {
 	ll  *log.Logger
 
 	mux *http.ServeMux
+
+	cancel context.CancelFunc
+	wg     *sync.WaitGroup
 }
 
 // Config specifies configuration for a Server.
@@ -88,9 +92,13 @@ func newServer(db database, fs filesystem, cfg *Config) *Server {
 
 	s.mux = mux
 
+	ctx, cancel := context.WithCancel(context.Background())
+	s.cancel = cancel
+	s.wg = new(sync.WaitGroup)
+
 	if cfg.Keepalive > 0 {
-		// TODO(mdlayher): enable canceling this goroutine via requestContext or similar
-		go s.keepalive(context.TODO())
+		s.wg.Add(1)
+		go s.keepalive(ctx)
 	}
 
 	return s
@@ -99,17 +107,27 @@ func newServer(db database, fs filesystem, cfg *Config) *Server {
 // keepalive sends keepalive messages to the database at regular intervals,
 // to keep connections open.
 func (s *Server) keepalive(ctx context.Context) {
+	defer s.wg.Done()
+
 	tick := time.NewTicker(s.cfg.Keepalive)
 	for {
+		if err := s.db.Ping(); err != nil {
+			s.logf("failed to send keepalive message: %v", err)
+		}
+
 		select {
 		case <-ctx.Done():
 			return
 		case <-tick.C:
-			if err := s.db.Ping(); err != nil {
-				s.logf("failed to send keepalive message: %v", err)
-			}
 		}
 	}
+}
+
+// Close closes any background goroutines started by the Server, such as the
+// keepalive functionality.
+func (s *Server) Close() {
+	s.cancel()
+	s.wg.Wait()
 }
 
 // ServeHTTP implements http.Handler.

@@ -125,6 +125,7 @@ var _ database = &memoryDatabase{}
 type memoryDatabase struct {
 	files []string
 	attrs map[string]mpd.Attrs
+	pingC chan<- struct{}
 
 	mu sync.RWMutex
 }
@@ -141,6 +142,7 @@ func (db *memoryDatabase) List(args ...string) ([]string, error) {
 }
 
 func (db *memoryDatabase) Ping() error {
+	db.pingC <- struct{}{}
 	return nil
 }
 
